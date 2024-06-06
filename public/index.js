@@ -2,63 +2,80 @@ const textArea = document.getElementById("text-input");
 const coordInput = document.getElementById("coord");
 const valInput = document.getElementById("val");
 const errorMsg = document.getElementById("error");
+const loadingIndicator = document.getElementById("loading-indicator");
+let puzzleString = ""; // Change to let to allow reassignment
 
+import puzzlesAndSolutions from "./public/puzzle-strings";
+
+// Set the initial puzzle value and fill Sudoku grid
 document.addEventListener("DOMContentLoaded", () => {
-  textArea.value =
-    "..9..5.1.85.4....2432......1...69.83.9.....6.62.71...9......1945....4.37.4.3..6..";
-  fillpuzzle(textArea.value);
+  setInitialPuzzleValue();
+  fillSudokuGrid(textArea.value.trim());
 });
 
-textArea.addEventListener("input", () => {
-  fillpuzzle(textArea.value);
-});
+// Event listener for text area input to trigger puzzle string update
+textArea.addEventListener("input", updatePuzzleString);
 
-function fillpuzzle(data) {
-  let len = data.length < 81 ? data.length : 81;
-  for (let i = 0; i < len; i++) {
-    let rowLetter = String.fromCharCode('A'.charCodeAt(0) + Math.floor(i / 9));
-    let col = (i % 9) + 1; 
-    if (!data[i] || data[i] === ".") {
-      document.getElementsByClassName(rowLetter + col)[0].innerText = " ";
-      continue;
+// Function to set the initial puzzle string value in the textArea
+function setInitialPuzzleValue() {
+  const initialPuzzleString = puzzlesAndSolutions[0][0];
+  textArea.value = initialPuzzleString;
+}
+
+// Function to fill the Sudoku grid based on the puzzle string
+function fillSudokuGrid(puzzleString) {
+  const cells = document.querySelectorAll(".sudoku-input");
+  for (let i = 0; i < cells.length; i++) {
+    cells[i].textContent = puzzleString.charAt(i);
+  }
+}
+
+// Function to handle solve button click
+async function handleSolve() {
+  showLoadingIndicator();
+  try {
+    const response = await fetch("/api/solve", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ puzzle: textArea.value }),
+    });
+    const data = await response.json();
+    if (response.ok) {
+      fillPuzzle(data.solvedPuzzle);
+    } else {
+      errorMsg.textContent = data.error || "Error solving puzzle";
     }
-    document.getElementsByClassName(rowLetter + col)[0].innerText = data[i];
+  } catch (error) {
+    errorMsg.textContent = "Error solving puzzle";
+    console.error("Error:", error);
+  } finally {
+    hideLoadingIndicator();
   }
-  return;
 }
 
-async function getSolved() {
-  const stuff = {"puzzle": textArea.value}
-  const data = await fetch("/api/solve", {
-    method: "POST",
-    headers: {
-      "Accept": "application/json",
-      "Content-type": "application/json"
-    },
-    body: JSON.stringify(stuff)
-  })
-  const parsed = await data.json();
-  if (parsed.error) {
-    errorMsg.innerHTML = `<code>${JSON.stringify(parsed, null, 2)}</code>`;
-    return
-  }
-  fillpuzzle(parsed.solution)
+// Function to handle check button click
+async function handleCheck() {
+  // Validation and other code here...
 }
 
-async function getChecked() {
-  const stuff = {"puzzle": textArea.value, "coordinate": coordInput.value, "value": valInput.value}
-    const data = await fetch("/api/check", {
-    method: "POST",
-    headers: {
-      "Accept": "application/json",
-      "Content-type": "application/json"
-    },
-    body: JSON.stringify(stuff)
-  })
-  const parsed = await data.json();
-  errorMsg.innerHTML = `<code>${JSON.stringify(parsed, null, 2)}</code>`;
+// Function to update the puzzle string based on user input
+function updatePuzzleString() {
+  puzzleString = textArea.value.trim();
+  fillSudokuGrid(puzzleString);
 }
 
+// Event listeners for buttons
+document.getElementById("solve-button").addEventListener("click", handleSolve);
+document.getElementById("check-button").addEventListener("click", handleCheck);
 
-document.getElementById("solve-button").addEventListener("click", getSolved)
-document.getElementById("check-button").addEventListener("click", getChecked)
+// Function to show loading indicator
+function showLoadingIndicator() {
+  loadingIndicator.style.display = "block";
+}
+
+// Function to hide loading indicator
+function hideLoadingIndicator() {
+  loadingIndicator.style.display = "none";
+}
